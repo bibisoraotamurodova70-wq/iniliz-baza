@@ -7,21 +7,42 @@ import requests
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from deep_translator import GoogleTranslator
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ==========================================
-# 1. BOT SOZLAMALARI (YANGI TOKEN BILAN)
+# 0. RENDER UCHUN YOLG'ONCHI VEB-SERVER (PORT XATOSINI YO'Q QILISH)
+# ==========================================
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is running successfully!")
+
+    def log_message(self, format, *args):
+        return  # Loglarni keraksiz yozuvlar bilan to'ldirmaslik uchun
+
+def run_health_server():
+    # Render avtomatik taqdim etadigan portni oladi, bo'lmasa 10000 ni ishlatadi
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    print(f"Fake server {port}-portda ishga tushdi...")
+    server.serve_forever()
+
+# ==========================================
+# 1. BOT SOZLAMALARI
 # ==========================================
 API_TOKEN = '8629414647:AAHUlQNffYLXZHxeV_P4Ut3tpUlpfPyMUlo'
 GROUP_CHAT_ID = '@testlar_bazasi_ingiliz'   
 
 bot = telebot.TeleBot(API_TOKEN)
 translator = GoogleTranslator(source='en', target='uz')
-DB_FILE = "clean_database.db"  # Yangi toza baza fayli
+DB_FILE = "clean_database.db"  
 
 IS_LOOP_RUNNING = False
 
 # ==========================================
-# 2. MA'LUMOTLAR BAZASI (0 DAN)
+# 2. MA'LUMOTLAR BAZASI
 # ==========================================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -76,7 +97,7 @@ def get_random_word():
     except: return None
 
 # ==========================================
-# 4. TUGMALAR ISHLASHI (TOZA POLLING)
+# 4. TUGMALAR ISHLASHI
 # ==========================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ans_"))
 def handle_answer(call):
@@ -92,13 +113,11 @@ def handle_answer(call):
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         
-        # 1. Oldin bosganmi tekshirish
         cursor.execute("SELECT 1 FROM solved_tests WHERE user_id = ? AND message_id = ?", (user_id, message_id))
         if cursor.fetchone():
             bot.answer_callback_query(call.id, "⚠️ Siz bu testga javob berib bo'lgansiz! Faqat 1 marta urinish mumkin.", show_alert=True)
             return
             
-        # 2. Test bazada bormi tekshirish
         cursor.execute("SELECT correct_answer FROM active_tests WHERE message_id = ?", (message_id,))
         row = cursor.fetchone()
         if not row:
@@ -106,12 +125,9 @@ def handle_answer(call):
             return
             
         correct_answer = row[0]
-        
-        # Urinishni srazu yopamiz
         cursor.execute("INSERT INTO solved_tests (user_id, message_id) VALUES (?, ?)", (user_id, message_id))
         conn.commit()
         
-        # Javobni tekshirish
         if selected_answer == correct_answer:
             current_score = add_score(user_id, full_name)
             bot.answer_callback_query(call.id, f"🎉 To'g'ri topdingiz!\nSizning jami ballingiz: {current_score} taga yetdi.", show_alert=True)
@@ -158,7 +174,7 @@ def test_sending_loop():
             msg = bot.send_message(
                 chat_id=GROUP_CHAT_ID, 
                 text=f"🇬🇧 **{word}** — so'zining to'g'ri tarjimasini toping:", 
-                markup=markup, 
+                reply_markup=markup, 
                 parse_mode="Markdown"
             )
             
@@ -173,24 +189,27 @@ def test_sending_loop():
                 time.sleep(15)
                 bot.send_message(GROUP_CHAT_ID, "🔔 **30 ta test yakunlandi!**\n\n" + get_leaderboard_text(), parse_mode="Markdown")
                 test_counter = 0
-                time.sleep(900)  # Turnirlar orasida 15 daqiqa tanaffus
+                time.sleep(900)  
                 bot.send_message(GROUP_CHAT_ID, "🚀 **Yangi turnir boshlandi! Ilk savollar yo'lda...**")
                 continue
-            time.sleep(60)  # Har 1 daqiqada 1 ta savol
+            time.sleep(60)  
         except Exception as e: time.sleep(15)
 
 # ==========================================
-# 7. MAJBURIY TOZALASH VA ISHGA TUSHIRISH
+# 7. ISHGA TUSHIRISH
 # ==========================================
 if __name__ == "__main__":
     try:
-        bot.remove_webhook()  # Eski webhook aloqalarini butunlay uzamiz
+        bot.remove_webhook()  
         requests.get(f"https://api.telegram.org/bot{API_TOKEN}/deleteWebhook?drop_pending_updates=true")
     except: pass
     
     time.sleep(2)
     
-    # Orqa fonda test oqimini yoqish
+    # 1. Loyiha Render'da BEPUL ishlashi uchun yolg'onchi serverni alohida oqimda yoqamiz
+    threading.Thread(target=run_health_server, daemon=True).start()
+    
+    # 2. Test oqimini yoqish
     threading.Thread(target=test_sending_loop, daemon=True).start()
     
     print("Yangi bot 0 dan toza holatda ishga tushmoqda...")
