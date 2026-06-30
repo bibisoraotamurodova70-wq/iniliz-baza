@@ -8,9 +8,10 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from deep_translator import GoogleTranslator
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from datetime import datetime, timedelta
 
 # ==========================================
-# 0. RENDER UCHUN YOLG'ONCHI VEB-SERVER (PORT XATOSINI YO'Q QILISH)
+# 0. RENDER UCHUN YOLG'ONCHI VEB-SERVER
 # ==========================================
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -20,10 +21,9 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running successfully!")
 
     def log_message(self, format, *args):
-        return  # Loglarni keraksiz yozuvlar bilan to'ldirmaslik uchun
+        return
 
 def run_health_server():
-    # Render avtomatik taqdim etadigan portni oladi, bo'lmasa 10000 ni ishlatadi
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
     print(f"Fake server {port}-portda ishga tushdi...")
@@ -34,6 +34,7 @@ def run_health_server():
 # ==========================================
 API_TOKEN = '8629414647:AAHUlQNffYLXZHxeV_P4Ut3tpUlpfPyMUlo'
 GROUP_CHAT_ID = '@testlar_bazasi_ingiliz'   
+KANAL_LINK = 'https://t.me/ingiliz_turnir'  # Sizning kanalingiz havolasi
 
 bot = telebot.TeleBot(API_TOKEN)
 translator = GoogleTranslator(source='en', target='uz')
@@ -143,7 +144,10 @@ def handle_answer(call):
 # ==========================================
 @bot.message_handler(commands=['reyting'])
 def send_leaderboard(message):
-    try: bot.reply_to(message, get_leaderboard_text(), parse_mode="Markdown")
+    try: 
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(text="📢 Bizning rasmiy kanal", url=KANAL_LINK))
+        bot.reply_to(message, get_leaderboard_text(), reply_markup=markup, parse_mode="Markdown")
     except Exception as e: print(f"Reyting buyrug'i xatosi: {e}")
 
 # ==========================================
@@ -186,12 +190,30 @@ def test_sending_loop():
             
             test_counter += 1
             if test_counter >= 30:
-                time.sleep(15)
-                bot.send_message(GROUP_CHAT_ID, "🔔 **30 ta test yakunlandi!**\n\n" + get_leaderboard_text(), parse_mode="Markdown")
+                time.sleep(5)
+                
+                # 15 daqiqalik tanaffus tugash vaqtini hisoblash
+                next_time = (datetime.now() + timedelta(minutes=15)).strftime("%H:%M")
+                
+                tanaffus_matni = (
+                    f"🔔 **30 ta testdan iborat turnir yakunlandi!**\n\n"
+                    f"{get_leaderboard_text()}\n"
+                    f"⏳ **Navbatdagi yangi turnir 15 daqiqadan so'ng (soat {next_time} da) boshlanadi.** "
+                    f"Ungacha bilimingizni dam oldirib turing! 🧠"
+                )
+                
+                # Reyting ostiga reklama kanali tugmasini qo'shish
+                reklama_markup = InlineKeyboardMarkup()
+                reklama_markup.add(InlineKeyboardButton(text="📢 Bizning rasmiy kanal", url=KANAL_LINK))
+                
+                bot.send_message(GROUP_CHAT_ID, tanaffus_matni, reply_markup=reklama_markup, parse_mode="Markdown")
                 test_counter = 0
-                time.sleep(900)  
+                
+                time.sleep(900)  # 15 daqiqa dam olish
+                
                 bot.send_message(GROUP_CHAT_ID, "🚀 **Yangi turnir boshlandi! Ilk savollar yo'lda...**")
                 continue
+                
             time.sleep(60)  
         except Exception as e: time.sleep(15)
 
@@ -206,10 +228,7 @@ if __name__ == "__main__":
     
     time.sleep(2)
     
-    # 1. Loyiha Render'da BEPUL ishlashi uchun yolg'onchi serverni alohida oqimda yoqamiz
     threading.Thread(target=run_health_server, daemon=True).start()
-    
-    # 2. Test oqimini yoqish
     threading.Thread(target=test_sending_loop, daemon=True).start()
     
     print("Yangi bot 0 dan toza holatda ishga tushmoqda...")
