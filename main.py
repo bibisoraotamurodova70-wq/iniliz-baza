@@ -8,7 +8,6 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from deep_translator import GoogleTranslator
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime, timedelta
 
 # ==========================================
 # 0. RENDER UCHUN YOLG'ONCHI VEB-SERVER
@@ -34,7 +33,7 @@ def run_health_server():
 # ==========================================
 API_TOKEN = '8629414647:AAHUlQNffYLXZHxeV_P4Ut3tpUlpfPyMUlo'
 GROUP_CHAT_ID = '@testlar_bazasi_ingiliz'   
-KANAL_LINK = 'https://t.me/ingiliz_turnir'  # Sizning kanalingiz havolasi
+KANAL_LINK = 'https://t.me/ingiliz_turnir'  
 
 bot = telebot.TeleBot(API_TOKEN)
 translator = GoogleTranslator(source='en', target='uz')
@@ -192,24 +191,21 @@ def test_sending_loop():
             if test_counter >= 30:
                 time.sleep(5)
                 
-                # 15 daqiqalik tanaffus tugash vaqtini hisoblash
-                next_time = (datetime.now() + timedelta(minutes=15)).strftime("%H:%M")
-                
+                # Soat ko'rsatkichlari butunlay olib tashlandi
                 tanaffus_matni = (
                     f"🔔 **30 ta testdan iborat turnir yakunlandi!**\n\n"
                     f"{get_leaderboard_text()}\n"
-                    f"⏳ **Navbatdagi yangi turnir 15 daqiqadan so'ng (soat {next_time} da) boshlanadi.** "
+                    f"⏳ **Navbatdagi yangi turnir 15 daqiqadan so'ng boshlanadi.** "
                     f"Ungacha bilimingizni dam oldirib turing! 🧠"
                 )
                 
-                # Reyting ostiga reklama kanali tugmasini qo'shish
                 reklama_markup = InlineKeyboardMarkup()
                 reklama_markup.add(InlineKeyboardButton(text="📢 Bizning rasmiy kanal", url=KANAL_LINK))
                 
                 bot.send_message(GROUP_CHAT_ID, tanaffus_matni, reply_markup=reklama_markup, parse_mode="Markdown")
                 test_counter = 0
                 
-                time.sleep(900)  # 15 daqiqa dam olish
+                time.sleep(900)  # 15 daqiqa kutish
                 
                 bot.send_message(GROUP_CHAT_ID, "🚀 **Yangi turnir boshlandi! Ilk savollar yo'lda...**")
                 continue
